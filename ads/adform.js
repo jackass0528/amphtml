@@ -14,12 +14,16 @@
  * limitations under the License.
  */
 
-import {writeScript, validateSrcPrefix, validateExactlyOne} from '../src/3p';
+import {writeScript, validateSrcPrefix, validateData} from '../3p/3p';
 
 // Valid adform ad source hosts
 const hosts = {
-  track: 'https://track.adform.net/',
-  adx: 'https://adx.adform.net/'
+  track: 'https://track.adform.net',
+  adx: 'https://adx.adform.net',
+  a2: 'https://a2.adform.net',
+  adx2: 'https://adx2.adform.net',
+  asia: 'https://asia.adform.net',
+  adx3: 'https://adx3.adform.net',
 };
 
 /**
@@ -27,8 +31,7 @@ const hosts = {
  * @param {!Object} data
  */
 export function adform(global, data) {
-
-  validateExactlyOne(data, ['src', 'bn', 'mid']);
+  validateData(data, [['src', 'bn', 'mid']]);
   global.Adform = {ampData: data};
   const src = data.src;
   const bn = data.bn;
@@ -42,11 +45,11 @@ export function adform(global, data) {
   }
   // Ad tag using "data-bn" attribute
   else if (bn) {
-    url = hosts.track + 'adfscript/?bn=' + encodeURIComponent(bn) + ';msrc=1';
+    url = hosts.track + '/adfscript/?bn=' + encodeURIComponent(bn) + ';msrc=1';
   }
   // Ad placement using "data-mid" attribute
   else if (mid) {
-    url = hosts.adx + 'adx/?mid=' + encodeURIComponent(mid);
+    url = hosts.adx + '/adx/?mid=' + encodeURIComponent(mid);
   }
 
   writeScript(global, url);

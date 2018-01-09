@@ -16,14 +16,9 @@ limitations under the License.
 
 # <a name="amp-access-analytics"></a>AMP Access and Analytics
 
-Experiment: "amp-access-analytics" should be enabled via https://cdn.ampproject.org/experiments.html or
-`AMP.toggleExperiment('amp-access-analytics')`. See [Experiments Guide](../../tools/experiments/README.md).
-
-An integration with *amp-analytics* is under development and can be tracked on [Issue #1556](https://github.com/ampproject/amphtml/issues/1556). This document will be updated when more details on the integration are available.
-
 ## Access analytics triggers
 
-Access service issues events for major states in the access flow. These events can be reported via an analytics package using triggers.
+Access service issues events for major states in the access flow. These events can be reported through the analytics configuration by using triggers.
 
 See [amp-analytics.md](../amp-analytics/amp-analytics.md) for details on *amp-analytics* configuration.
 
@@ -141,7 +136,7 @@ When only one Login URL is configured, the event is `access-login-rejected`. Whe
 
 The `access-login[-type]-failed` event is issued when Login dialog has failed due to an unknown reason. Use these configurations to fire a request for this event.
 
-When only one Login URL is configured, the event is `access-login[-type]-rejected`. When multiple Login URLs are configured, the event is `access-login-type-rejected`, e.g. "access-login-signup-rejected". See [Login Page Spec](./amp-access-spec.md#login-page) for more info.
+When only one Login URL is configured, the event is `access-login[-type]-failed`. When multiple Login URLs are configured, the event is `access-login-type-failed`, e.g. "access-login-signup-failed". See [Login Page Spec](./amp-access-spec.md#login-page) for more info.
 
 ```javascript
 "triggers": {
@@ -154,7 +149,7 @@ When only one Login URL is configured, the event is `access-login[-type]-rejecte
 
 ## Access analytics variables
 
-Access contributes the following URL substitutions to the [amp-var-substitutions.md](spec/amp-var-substitutions.md).
+Access contributes the following URL substitutions to the [amp-var-substitutions.md](/spec/amp-var-substitutions.md).
 
 ### ACCESS_READER_ID
 

@@ -29,8 +29,6 @@ export function setInViewportForTesting(inV) {
   inViewport = inV;
 }
 
-let rafId = 0;
-let rafQueue = {};
 // Active intervals. Must be global, because people clear intervals
 // with clearInterval from a different window.
 const intervals = {};
@@ -64,6 +62,7 @@ function manageWin_(win) {
   installObserver(win);
   // Existing iframes.
   maybeInstrumentsNodes(win, win.document.querySelectorAll('iframe'));
+  blockSyncPopups(win);
 }
 
 
@@ -79,8 +78,10 @@ function instrumentDocWrite(parent, win) {
     parent.ampManageWin = function(win) {
       manageWin(win);
     };
-    doc.write('<script>window.parent.ampManageWin(window)</script>');
-    // .call does not work in Safari with document.write.
+    if (!parent.ampSeen) {
+      // .call does not work in Safari with document.write.
+      doc.write('<script>window.parent.ampManageWin(window)</script>');
+    }
     doc._close = close;
     return doc._close();
   };
@@ -103,7 +104,7 @@ function instrumentSrcdoc(parent, iframe) {
 /**
  * Instrument added nodes if they are instrumentable iframes.
  * @param {!Window} win
- * @param {!Array<!Node>} addedNodes
+ * @param {!Array<!Node>|NodeList<!Node>|NodeList<!Element>|null} addedNodes
  */
 function maybeInstrumentsNodes(win, addedNodes) {
   for (let n = 0; n < addedNodes.length; n++) {
@@ -210,51 +211,39 @@ function instrumentEntryPoints(win) {
     win.clearTimeout(intervals[id]);
     delete intervals[id];
   };
-  // Throttle requestAnimationFrame.
-  const requestAnimationFrame = win.requestAnimationFrame ||
-      win.webkitRequestAnimationFrame;
-  win.requestAnimationFrame = function(cb) {
-    if (!inViewport) {
-      // If the doc is not visible, queue up the frames until we become
-      // visible again.
-      const id = rafId++;
-      rafQueue[id] = [win, cb];
-      // Only queue 20 frame requests to avoid mem leaks.
-      delete rafQueue[id - 20];
-      return id;
-    }
-    return requestAnimationFrame.call(this, cb);
-  };
-  const cancelAnimationFrame = win.cancelAnimationFrame;
-  win.cancelAnimationFrame = function(id) {
-    cancelAnimationFrame.call(this, id);
-    delete rafQueue[id];
-  };
-  if (win.webkitRequestAnimationFrame) {
-    win.webkitRequestAnimationFrame = win.requestAnimationFrame;
-    win.webkitCancelAnimationFrame = win.webkitCancelRequestAnimationFrame =
-        win.cancelAnimationFrame;
-  }
 }
 
 /**
- * Run when we just became visible again. Runs all the queued up rafs.
- * @visibleForTesting
+ * Blackhole the legacy popups since they should never be used for anything.
+ * @param {!Window} win
  */
-export function becomeVisible() {
-  for (const id in rafQueue) {
-    if (rafQueue.hasOwnProperty(id)) {
-      const f = rafQueue[id];
-      f[0].requestAnimationFrame(f[1]);
+function blockSyncPopups(win) {
+  let count = 0;
+  function maybeThrow() {
+    // Prevent deep recursion.
+    if (count++ > 2) {
+      throw new Error('security error');
     }
   }
-  rafQueue = {};
+  try {
+    win.alert = maybeThrow;
+    win.prompt = function() {
+      maybeThrow();
+      return '';
+    };
+    win.confirm = function() {
+      maybeThrow();
+      return false;
+    };
+  } catch (e) {
+    console./*OK*/error(e.message, e.stack);
+  }
 }
 
 /**
  * Calculates the minimum time that a timeout should have right now.
- * @param {number} time
- * @return {number}
+ * @param {number|undefined} time
+ * @return {number|undefined}
  */
 function minTime(time) {
   if (!inViewport) {
@@ -271,8 +260,5 @@ function minTime(time) {
 export function installEmbedStateListener() {
   listenParent(window, 'embed-state', function(data) {
     inViewport = data.inViewport;
-    if (inViewport) {
-      becomeVisible();
-    }
   });
 };

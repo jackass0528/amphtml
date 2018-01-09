@@ -14,7 +14,12 @@
  * limitations under the License.
  */
 
-import {dashToCamelCase,expandTemplate} from '../../src/string';
+import {
+  camelCaseToDash,
+  dashToCamelCase,
+  expandTemplate,
+  endsWith,
+} from '../../src/string';
 
 describe('dashToCamelCase', () => {
   it('should transform dashes to camel case.', () => {
@@ -22,6 +27,22 @@ describe('dashToCamelCase', () => {
     expect(dashToCamelCase('foo-bar')).to.equal('fooBar');
     expect(dashToCamelCase('foo-bar-baz')).to.equal('fooBarBaz');
     expect(dashToCamelCase('-foo')).to.equal('Foo');
+  });
+});
+
+describe('endsWith', () => {
+  it('should determine whether string ends with.', () => {
+    expect(endsWith('a', 'a')).to.be.true;
+    expect(endsWith('b', 'a')).to.be.false;
+    expect(endsWith('ab', 'a')).to.be.false;
+    expect(endsWith('aba', 'a')).to.be.true;
+    expect(endsWith('aba', 'aba')).to.be.true;
+    expect(endsWith('Xaba', 'aba')).to.be.true;
+    expect(endsWith('Xaba', '')).to.be.true;
+    expect(endsWith('', 'a')).to.be.false;
+    expect(endsWith('aa', 'aaa')).to.be.false;
+    expect(endsWith('aa', 'aaaa')).to.be.false;
+    expect(endsWith('', '')).to.be.true;
   });
 });
 
@@ -38,7 +59,7 @@ describe('expandTemplate', () => {
     'totoxy': '${toxy}',
     'loop1': '${loop2}',
     'loop2': '${loop1}',
-    'loop': '${loop}'
+    'loop': '${loop}',
   };
 
   function testGetter(key) {
@@ -84,5 +105,19 @@ describe('expandTemplate', () => {
     expect(expandTemplate('${loop}', testGetter)).to.equal('${loop}');
     expect(expandTemplate('${loop}', testGetter), 10).to.equal('${loop}');
     expect(expandTemplate('${loop1}', testGetter), 10).to.equal('${loop2}');
+  });
+});
+
+describe('camelCaseToDash', () => {
+  it('should convert camelCase strings to dash-case strings', () => {
+    expect(camelCaseToDash('foo')).to.equal('foo');
+    expect(camelCaseToDash('fooBar')).to.equal('foo-bar');
+    expect(camelCaseToDash('fooBarBaz')).to.equal('foo-bar-baz');
+    // Not really valid camel case
+    expect(camelCaseToDash('FooBarBaz')).to.equal('Foo-bar-baz');
+    expect(camelCaseToDash('f00B4rB4z')).to.equal('f00-b4r-b4z');
+    expect(camelCaseToDash('f00b4rb4z')).to.equal('f00b4rb4z');
+    expect(camelCaseToDash('ABC')).to.equal('A-b-c');
+    expect(camelCaseToDash('aBC')).to.equal('a-b-c');
   });
 });

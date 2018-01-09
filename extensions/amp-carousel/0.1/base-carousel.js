@@ -13,51 +13,105 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+import {KeyCodes} from '../../../src/utils/key-codes';
+import {Services} from '../../../src/services';
 
+/**
+ * @abstract
+ */
 export class BaseCarousel extends AMP.BaseElement {
+
+  /** @param {!AmpElement} element */
+  constructor(element) {
+    super(element);
+
+    /** @private {?Element} */
+    this.prevButton_ = null;
+
+    /** @private {?Element} */
+    this.nextButton_ = null;
+
+    /** @private {boolean} */
+    this.showControls_ = false;
+  }
 
   /** @override */
   buildCallback() {
-    /** @private {!Element} */
-    this.prevButton_;
+    this.showControls_ = this.element.hasAttribute('controls');
 
-    /** @private {!Element} */
-    this.nextButton_;
-
+    if (this.showControls_) {
+      this.element.classList.add('i-amphtml-carousel-has-controls');
+    }
     this.buildCarousel();
     this.buildButtons();
     this.setupGestures();
     this.setControlsState();
+  }
 
-    if (this.element.hasAttribute('controls')) {
-      this.element.classList.add('-amp-carousel-has-controls');
+  /** @override */
+  viewportCallback(inViewport) {
+    this.onViewportCallback(inViewport);
+    if (inViewport) {
+      this.hintControls();
     }
   }
 
+  /**
+   * Handles element specific viewport based events.
+   * @param {boolean} unusedInViewport.
+   * @protected
+   */
+  onViewportCallback(unusedInViewport) {}
+
+
   buildButtons() {
-    this.prevButton_ = document.createElement('div');
+    this.prevButton_ = this.element.ownerDocument.createElement('div');
     this.prevButton_.classList.add('amp-carousel-button');
     this.prevButton_.classList.add('amp-carousel-button-prev');
     this.prevButton_.setAttribute('role', 'button');
-    // TODO(erwinm): Does label need i18n support in the future? or provide
-    // a way to be overridden.
-    this.prevButton_.setAttribute('aria-label', 'previous');
-    this.prevButton_.onclick = () => {
-      if (!this.prevButton_.classList.contains('amp-disabled')) {
-        this.go(-1, true);
+    if (this.element.hasAttribute('data-previous-button-aria-label')) {
+      this.prevButton_.setAttribute('aria-label',
+          this.element.getAttribute('data-previous-button-aria-label'));
+    } else {
+      this.prevButton_.setAttribute('aria-label',
+          'Previous item in carousel');
+    }
+    this.prevButton_.setAttribute('tabindex', 0);
+    this.prevButton_.onkeydown = event => {
+      if (event.keyCode == KeyCodes.ENTER || event.keyCode == KeyCodes.SPACE) {
+        if (!event.defaultPrevented) {
+          event.preventDefault();
+          this.interactionPrev();
+        }
       }
+    };
+    this.prevButton_.onclick = () => {
+      this.interactionPrev();
     };
     this.element.appendChild(this.prevButton_);
 
-    this.nextButton_ = document.createElement('div');
+    this.nextButton_ = this.element.ownerDocument.createElement('div');
     this.nextButton_.classList.add('amp-carousel-button');
     this.nextButton_.classList.add('amp-carousel-button-next');
     this.nextButton_.setAttribute('role', 'button');
-    this.nextButton_.setAttribute('aria-label', 'next');
-    this.nextButton_.onclick = () => {
-      if (!this.nextButton_.classList.contains('amp-disabled')) {
-        this.go(1, true);
+    if (this.element.hasAttribute('data-next-button-aria-label')) {
+      this.nextButton_.setAttribute('aria-label',
+          this.element.getAttribute('data-next-button-aria-label'));
+    } else {
+      this.nextButton_.setAttribute('aria-label',
+          'Next item in carousel');
+    }
+    this.nextButton_.setAttribute('tabindex', 0);
+    this.nextButton_.onkeydown = event => {
+      if (event.keyCode == KeyCodes.ENTER || event.keyCode == KeyCodes.SPACE) {
+        if (!event.defaultPrevented) {
+          event.preventDefault();
+          this.interactionNext();
+        }
       }
+    };
+    this.nextButton_.onclick = () => {
+      this.interactionNext();
     };
     this.element.appendChild(this.nextButton_);
   }
@@ -74,33 +128,37 @@ export class BaseCarousel extends AMP.BaseElement {
 
   /**
    * Subclasses should override this method to build the UI for the carousel.
+   * @abstract
    */
   buildCarousel() {
     // Subclasses may override.
   }
 
   /**
-   * Subclasses should override this method to configure gestures for carousel.
+   * Subclasses may override this method to configure gestures for carousel.
    */
   setupGestures() {
     // Subclasses may override.
   }
 
   /**
-   * Calls `goCallback` and `setControlsState` for transition behavior.
+   * Calls `goCallback` and any additional work needed to proceed to next
+   * desired direction.
    * @param {number} dir -1 or 1
    * @param {boolean} animate
+   * @param {boolean=} opt_autoplay
    */
-  go(dir, animate) {
-    this.goCallback(dir, animate);
+  go(dir, animate, opt_autoplay = false) {
+    this.goCallback(dir, animate, opt_autoplay);
   }
 
   /**
    * Proceeds to the next slide in the desired direction.
    * @param {number} unusedDir -1 or 1
    * @param {boolean} unusedAnimate
+   * @param {boolean=} opt_autoplay
    */
-  goCallback(unusedDir, unusedAnimate) {
+  goCallback(unusedDir, unusedAnimate, opt_autoplay) {
     // Subclasses may override.
   }
 
@@ -115,17 +173,29 @@ export class BaseCarousel extends AMP.BaseElement {
   }
 
   /**
-   * @return {boolean}
-   * @override
+   * Shows the controls and then fades them away.
    */
-  isReadyToBuild() {
-    // TODO(dvoytenko, #1014): Review and try a more immediate approach.
-    // Wait until DOMReady.
-    return false;
+  hintControls() {
+    if (this.showControls_ || !this.isInViewport()) {
+      return;
+    }
+    this.getVsync().mutate(() => {
+      const className = 'i-amphtml-carousel-button-start-hint';
+      this.element.classList.add(className);
+      Services.timerFor(this.win).delay(() => {
+        this.deferMutate(() => {
+          this.element.classList.remove(className);
+          this.prevButton_.classList.toggle(
+              'i-amphtml-screen-reader', !this.showControls_);
+          this.nextButton_.classList.toggle(
+              'i-amphtml-screen-reader', !this.showControls_);
+        });
+      }, 4000);
+    });
   }
 
   /** @override */
-  documentInactiveCallback() {
+  unlayoutCallback() {
     return true;
   }
 
@@ -141,5 +211,23 @@ export class BaseCarousel extends AMP.BaseElement {
    */
   hasNext() {
     // Subclasses may override.
+  }
+
+  /**
+   * Called on user interaction to proceed to the next item/position.
+   */
+  interactionNext() {
+    if (!this.nextButton_.classList.contains('amp-disabled')) {
+      this.go(/* dir */ 1, /* animate */ true, /* autoplay */ false);
+    }
+  }
+
+  /**
+   * Called on user interaction to proceed to the previous item/position.
+   */
+  interactionPrev() {
+    if (!this.prevButton_.classList.contains('amp-disabled')) {
+      this.go(/* dir */ -1, /* animate */ true, /* autoplay */ false);
+    }
   }
 }

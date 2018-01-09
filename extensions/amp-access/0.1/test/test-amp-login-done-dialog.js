@@ -38,12 +38,12 @@ describe('LoginDoneDialog', () => {
     windowApi = {
       close: () => {},
       navigator: {
-        language: 'fr-FR'
+        language: 'fr-FR',
       },
       location: {
         hash: '#result1',
         search: '',
-        replace: sandbox.spy()
+        replace: sandbox.spy(),
       },
       addEventListener: (type, callback) => {
         if (type == 'message') {
@@ -74,8 +74,8 @@ describe('LoginDoneDialog', () => {
             return null;
           }
           return {};
-        }
-      }
+        },
+      },
     };
     windowMock = sandbox.mock(windowApi);
     openerMock = sandbox.mock(windowApi.opener);
@@ -85,7 +85,6 @@ describe('LoginDoneDialog', () => {
 
   afterEach(() => {
     sandbox.restore();
-    sandbox = null;
   });
 
   function succeed() {
@@ -93,8 +92,8 @@ describe('LoginDoneDialog', () => {
       origin: 'http://localhost:8000',
       data: {
         sentinel: 'amp',
-        type: 'result-ack'
-      }
+        type: 'result-ack',
+      },
     });
   }
 
@@ -196,7 +195,7 @@ describe('LoginDoneDialog', () => {
           .then(() => 'SUCCESS', error => 'ERROR ' + error)
           .then(res => {
             expect(res).to.equal('SUCCESS');
-            expect(windowApi.location.replace.callCount).to.equal(1);
+            expect(windowApi.location.replace).to.be.calledOnce;
             expect(windowApi.location.replace.firstCall.args[0]).to.equal(
                 'http://acme.com/doc1');
           });
@@ -210,7 +209,7 @@ describe('LoginDoneDialog', () => {
           .then(() => 'SUCCESS', error => 'ERROR ' + error)
           .then(res => {
             expect(res).to.equal('SUCCESS');
-            expect(windowApi.location.replace.callCount).to.equal(1);
+            expect(windowApi.location.replace).to.be.calledOnce;
             expect(windowApi.location.replace.firstCall.args[0]).to.equal(
                 'https://acme.com/doc1');
           });
@@ -223,7 +222,7 @@ describe('LoginDoneDialog', () => {
       expect(() => {
         dialog.postbackOrRedirect_();
       }).to.throw(/URL must start with/);
-      expect(windowApi.location.replace.callCount).to.equal(0);
+      expect(windowApi.location.replace).to.have.not.been.called;
     });
 
     it('should fail without opener and redirect URL', () => {
@@ -262,21 +261,40 @@ describe('LoginDoneDialog', () => {
       windowMock.expects('close').once();
       dialog.postbackError_ = sandbox.spy();
       dialog.postbackSuccess_();
-      expect(dialog.postbackError_.callCount).to.equal(0);
+      expect(dialog.postbackError_).to.have.not.been.called;
 
       clock.tick(10000);
-      expect(dialog.postbackError_.callCount).to.equal(1);
+      expect(dialog.postbackError_).to.be.calledOnce;
     });
 
-    it('should configure error mode', () => {
+    it('should configure error mode for "postback"', () => {
       dialog.postbackError_(new Error());
 
-      expect(windowApi.document.documentElement).to.have.class(
-          'amp-postback-error');
+      expect(windowApi.document.documentElement)
+          .to.have.class('amp-error');
+      expect(windowApi.document.documentElement.getAttribute('data-error'))
+          .to.equal('postback');
       expect(closeButton.onclick).to.exist;
 
       windowMock.expects('close').once();
       closeButton.onclick();
+    });
+
+    it('should configure error mode for "close"', () => {
+      dialog.postbackError_(new Error());
+
+      expect(windowApi.document.documentElement)
+          .to.have.class('amp-error');
+      expect(windowApi.document.documentElement.getAttribute('data-error'))
+          .to.equal('postback');
+      windowMock.expects('close').once();
+      closeButton.onclick();
+
+      clock.tick(3000);
+      expect(windowApi.document.documentElement)
+          .to.have.class('amp-error');
+      expect(windowApi.document.documentElement.getAttribute('data-error'))
+          .to.equal('close');
     });
   });
 });
