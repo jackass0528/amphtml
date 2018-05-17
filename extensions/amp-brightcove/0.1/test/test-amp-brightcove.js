@@ -14,55 +14,57 @@
  * limitations under the License.
  */
 
-import {createIframePromise} from '../../../../testing/iframe';
-require('../amp-brightcove');
-import {adopt} from '../../../../src/runtime';
+import '../amp-brightcove';
 import {parseUrl} from '../../../../src/url';
 
-adopt(window);
 
-describe('amp-brightcove', () => {
+describes.realWin('amp-brightcove', {
+  amp: {
+    extensions: ['amp-brightcove'],
+  },
+}, env => {
+  let win, doc;
+
+  beforeEach(() => {
+    win = env.win;
+    doc = win.document;
+  });
 
   function getBrightcove(attributes, opt_responsive) {
-    return createIframePromise().then(iframe => {
-      const bc = iframe.doc.createElement('amp-brightcove');
-      for (const key in attributes) {
-        bc.setAttribute(key, attributes[key]);
-      }
-      bc.setAttribute('width', '111');
-      bc.setAttribute('height', '222');
-      if (opt_responsive) {
-        bc.setAttribute('layout', 'responsive');
-      }
-      iframe.doc.body.appendChild(bc);
-      bc.implementation_.layoutCallback();
-      return bc;
-    });
+    const bc = doc.createElement('amp-brightcove');
+    for (const key in attributes) {
+      bc.setAttribute(key, attributes[key]);
+    }
+    bc.setAttribute('width', '111');
+    bc.setAttribute('height', '222');
+    if (opt_responsive) {
+      bc.setAttribute('layout', 'responsive');
+    }
+    doc.body.appendChild(bc);
+    return bc.build().then(() => bc.layoutCallback()).then(() => bc);
   }
 
   it('renders', () => {
     return getBrightcove({
       'data-account': '906043040001',
-      'data-video-id': 'ref:ampdemo'
+      'data-video-id': 'ref:ampdemo',
     }).then(bc => {
       const iframe = bc.querySelector('iframe');
       expect(iframe).to.not.be.null;
       expect(iframe.tagName).to.equal('IFRAME');
       expect(iframe.src).to.equal(
           'https://players.brightcove.net/906043040001/default_default/index.html?videoId=ref:ampdemo');
-      expect(iframe.getAttribute('width')).to.equal('111');
-      expect(iframe.getAttribute('height')).to.equal('222');
     });
   });
 
   it('renders responsively', () => {
     return getBrightcove({
       'data-account': '906043040001',
-      'data-video-id': 'ref:ampdemo'
+      'data-video-id': 'ref:ampdemo',
     }, true).then(bc => {
       const iframe = bc.querySelector('iframe');
       expect(iframe).to.not.be.null;
-      expect(iframe.className).to.match(/-amp-fill-content/);
+      expect(iframe.className).to.match(/i-amphtml-fill-content/);
     });
   });
 
@@ -71,16 +73,51 @@ describe('amp-brightcove', () => {
         /The data-account attribute is required for/);
   });
 
-  // TODO(erwinm) unskip this when we figure out why it fails on travis
-  it.skip('should pass data-param-* attributes to the iframe src', () => {
+  it('removes iframe after unlayoutCallback', () => {
     return getBrightcove({
       'data-account': '906043040001',
       'data-video-id': 'ref:ampdemo',
-      'data-param-my-param': 'hello world'
+    }, true).then(bc => {
+      const iframe = bc.querySelector('iframe');
+      expect(iframe).to.not.be.null;
+      const obj = bc.implementation_;
+      obj.unlayoutCallback();
+      expect(bc.querySelector('iframe')).to.be.null;
+      expect(obj.iframe_).to.be.null;
+    });
+  });
+
+  it('should pass data-param-* attributes to the iframe src', () => {
+    return getBrightcove({
+      'data-account': '906043040001',
+      'data-video-id': 'ref:ampdemo',
+      'data-param-my-param': 'hello world',
     }).then(bc => {
       const iframe = bc.querySelector('iframe');
       const params = parseUrl(iframe.src).search.split('&');
       expect(params).to.contain('myParam=hello%20world');
+    });
+  });
+
+  it('should propagate mutated attributes', () => {
+    return getBrightcove({
+      'data-account': '906043040001',
+      'data-video-id': 'ref:ampdemo',
+    }).then(bc => {
+      const iframe = bc.querySelector('iframe');
+
+      expect(iframe.src).to.equal('https://players.brightcove.net/' +
+          '906043040001/default_default/index.html?videoId=ref:ampdemo');
+
+      bc.setAttribute('data-account', '12345');
+      bc.setAttribute('data-video-id', 'abcdef');
+      bc.mutatedAttributesCallback({
+        'data-account': '12345',
+        'data-video-id': 'abcdef',
+      });
+
+      expect(iframe.src).to.equal('https://players.brightcove.net/' +
+          '12345/default_default/index.html?videoId=abcdef');
     });
   });
 });
